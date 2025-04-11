@@ -1,3 +1,6 @@
+#### IMPORTANT: These scripts are stored locally and run locally on this machine. ####
+#### This means they are not exposed to the internet and are not publicly accessible. ####
+
 import smtplib
 import time
 import requests

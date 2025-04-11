@@ -1,3 +1,6 @@
+#### IMPORTANT: These scripts are stored in Splunk Add-on Builder and run in the context of Splunk. ####
+#### This means they are copied over from there, so others can view the code achieved here ####
+
 import json
 
 import requests
@@ -19,6 +22,8 @@ def fetch_abusech_data():
         response.raise_for_status()  # Raises an error for a bad status code
 
         return response.json()
+    
+    ### helper has to be used for Splunk itself.
 
     except requests.exceptions.HTTPError as http_err:
 
@@ -35,7 +40,7 @@ def fetch_abusech_data():
     return None
 
 # Recursive function to flatten JSON
-
+### This function takes a nested JSON object (which might have dictionaries or lists inside it) and "flattens" it into a simple one-level dictionary.
 def flatten_json(json_obj, parent_key='', separator='_'):
 
     items = []

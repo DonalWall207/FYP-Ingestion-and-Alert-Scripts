@@ -1,3 +1,6 @@
+#### IMPORTANT: These scripts are stored in Splunk Add-on Builder and run in the context of Splunk. ####
+#### This means they are copied over from there, so others can view the code achieved here ####
+
 import json
 import requests
 import os
@@ -31,6 +34,7 @@ def fetch_abuseipdb_data():
     return None
 
 # Function to flatten JSON (to simplify complex nested structures)
+### This function takes a nested JSON object (which might have dictionaries or lists inside it) and "flattens" it into a simple one-level dictionary.
 def flatten_json(json_obj, parent_key='', separator='_'):
     items = []
     for key, value in json_obj.items():

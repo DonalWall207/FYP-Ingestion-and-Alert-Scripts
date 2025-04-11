@@ -1,3 +1,6 @@
+#### IMPORTANT: These scripts are stored locally and run locally on this machine. ####
+#### This means they are not exposed to the internet and are not publicly accessible. ####
+
 import smtplib
 import time
 import requests
@@ -7,19 +10,22 @@ from email.mime.text import MIMEText
 from dotenv import load_dotenv
 import os
 
-# Load environment variables from .env file
+# Load environment variables from a .env file into the environment
 load_dotenv()
 
-# Function to send email alerts
+# Function to send email alerts when a threat is detected
 def send_email(threat, source_ip, dest_ip, reporter):
-    ### SMTP server and port were found, public info for gmail
+    # Load SMTP configuration from environment variables
     smtp_server = os.getenv("SMTP_SERVER")
     smtp_port = os.getenv("SMTP_PORT")
     username = os.getenv("EMAIL_USERNAME")
-    password = os.getenv('SMTP_PASSWORD')  # Fetch SMTP password from environment variables
+    password = os.getenv('SMTP_PASSWORD')  # SMTP password (or app-specific password)
 
+    # Email sender and recipient information
     from_addr = os.getenv("EMAIL_USERNAME")
     to_addr = os.getenv("EMAIL_USERNAME2")
+
+    # Subject and body of the email alert
     subject = f"Splunk Alert: {threat} Detected"
     body = f"""
     A new threat has been detected:
@@ -32,47 +38,52 @@ def send_email(threat, source_ip, dest_ip, reporter):
     Please review the event for more details.
     """
 
-    # Create email message with the threat details
+    # Create an email message object
     msg = MIMEMultipart()
     msg['From'] = from_addr
     msg['To'] = to_addr
     msg['Subject'] = subject
-    msg.attach(MIMEText(body, 'plain'))
+    msg.attach(MIMEText(body, 'plain'))  # Attach the email body as plain text
 
     try:
-        # Connect to SMTP server and send email
+        # Connect to the SMTP server and send the email
         server = smtplib.SMTP(smtp_server, smtp_port)
-        server.starttls()
-        server.login(username, password)  # Login with provided credentials
-        server.sendmail(from_addr, to_addr, msg.as_string())
-        print("Email sent successfully!")  # Log successful email send
+        server.starttls()  # Secure the connection with TLS
+        server.login(username, password)  # Authenticate with the SMTP server
+        server.sendmail(from_addr, to_addr, msg.as_string())  # Send the email
+        print("Email sent successfully!")  # Log success
     except Exception as e:
-        print(f"Error sending email: {e}")  # Log any errors that occur
+        print(f"Error sending email: {e}")  # Log any exceptions
     finally:
-        server.quit()  # Ensure server is properly closed after the operation
+        server.quit()  # Close the connection to the server
 
-
-# Function to check the saved search results
+# Function to check a specific saved search in Splunk and send alerts
 def check_saved_search():
-    # Splunk REST API settings - These were found Splunk official Website
+    # Base URL of the Splunk instance
     splunk_url = 'https://127.0.0.1:8089'
+    
+    # Name of the saved search configured in Splunk
     saved_search_name = 'Threat Alert Email Action'
 
+    # Create a session for making HTTP requests
     session = requests.Session()
-    auth = ('admin', 'changeme')  # Change to your Splunk credentials
+    
+    # Splunk credentials (update 'changeme' for production!)
+    auth = ('admin', 'changeme')
 
-    # Dispatch the saved search via Splunk's REST API
+    # Construct the URL to dispatch the saved search
     dispatch_url = f'{splunk_url}/servicesNS/admin/search/saved/searches/{saved_search_name}/dispatch'
     headers = {'Content-Type': 'application/x-www-form-urlencoded'}
 
-    # Send request to dispatch the saved search job
+    # Send a request to start (dispatch) the saved search job
     response = session.post(dispatch_url, auth=auth, headers=headers, data={'output_mode': 'json'}, verify=False)
 
+    # Check if the search was successfully dispatched
     if response.status_code != 201:
         print(f"Failed to dispatch search: {response.text}")
         return
 
-    # Extract search job ID from the response
+    # Parse the job ID from the JSON response
     response_json = response.json()
     job_id = response_json.get('sid')
     if not job_id:
@@ -81,10 +92,10 @@ def check_saved_search():
 
     print(f"Dispatched search job ID: {job_id}")
 
-    # Wait for the search job to complete (poll for status)
+    # Poll Splunk to check if the search job is done
     status_url = f'{splunk_url}/services/search/jobs/{job_id}?output_mode=json'
     
-    for _ in range(10):  # Poll for up to 10 seconds
+    for _ in range(10):  # Try for up to 10 seconds
         time.sleep(1)
         status_response = session.get(status_url, auth=auth, verify=False)
         if status_response.status_code == 200:
@@ -93,18 +104,19 @@ def check_saved_search():
                 print("Search completed!")
                 break
     else:
-        print("Search did not complete in time.")  # Log if the search doesn't complete in time
+        # If the job didn't complete in time, exit
+        print("Search did not complete in time.")
         return
 
-    # Fetch the results of the completed search
+    # Fetch the search results
     results_url = f'{splunk_url}/services/search/jobs/{job_id}/results?output_mode=json'
     result_response = session.get(results_url, auth=auth, verify=False)
 
     if result_response.status_code == 200:
         results = result_response.json()
-        print("Search results received:", results)  # Log the results for debugging
+        print("Search results received:", results)
 
-        # If results contain any threats, send email notifications
+        # If there are any results, extract threat details and send email notifications
         if 'results' in results and results['results']:
             for result in results['results']:
                 send_email(
@@ -116,8 +128,7 @@ def check_saved_search():
         else:
             print("No threat detected in search results.")
     else:
-        print(f"Failed to fetch results: {result_response.text}")  # Log failure to fetch results
+        print(f"Failed to fetch results: {result_response.text}")
 
-
-# Run the search check
-check_saved_search()  # Execute the function to check the saved search and send email alerts
+# Entry point - run the search check
+check_saved_search()
